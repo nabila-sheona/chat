@@ -93,9 +93,6 @@ export default function ContactsScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title" style={styles.titleText}>
-          Contacts
-        </ThemedText>
         <ThemedText type="default" style={styles.subtitle}>
           {users.length} users found
         </ThemedText>
@@ -138,11 +135,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
-  },
-  titleText: {
-    color: "#000000",
-    fontSize: 24,
-    fontWeight: "bold",
   },
   subtitle: {
     color: "#666",

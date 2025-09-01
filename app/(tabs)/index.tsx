@@ -208,7 +208,7 @@ export default function ChatListScreen() {
       style={styles.chatItem}
       onPress={() => router.push(`/chat/${item.id}`)}
     >
-      <View style={styles.avatarContainer}>
+      <View>
         <Ionicons name="person-circle" size={50} color="#A1CEDC" />
       </View>
       <View style={styles.chatContent}>
@@ -246,9 +246,10 @@ export default function ChatListScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.titleText}>Chats</ThemedText>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out" size={24} color="#007AFF" />
+          <ThemedText style={styles.emptySubtext}>
+            LOG OUT <Ionicons name="log-out" size={24} color="#007AFF" />
+          </ThemedText>{" "}
         </TouchableOpacity>
       </View>
 
@@ -289,11 +290,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
   },
-  titleText: {
-    color: "#000000",
-    fontSize: 24,
-    fontWeight: "bold",
-  },
   logoutButton: {
     padding: 8,
   },
@@ -304,9 +300,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
   },
-  avatarContainer: {
-    marginRight: 16,
-  },
+
   chatContent: {
     flex: 1,
   },
