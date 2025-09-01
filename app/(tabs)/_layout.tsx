@@ -1,8 +1,7 @@
-import { Tabs } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Tabs, router } from "expo-router";
+import { useEffect } from "react";
 
 export default function TabLayout() {
   const { currentUser } = useAuth();
@@ -43,15 +42,6 @@ export default function TabLayout() {
           title: "Contacts",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
           ),
         }}
       />

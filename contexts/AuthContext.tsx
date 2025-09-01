@@ -1,28 +1,32 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import { auth } from "@/config/firebase";
+import { createUserProfile } from "@/utils/firebaseHelpers";
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  User,
   GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
   signInWithPopup,
+  signOut,
   updateProfile,
+  User,
   UserCredential,
 } from "firebase/auth";
-import { auth } from "@/config/firebase";
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Platform } from "react-native";
-import { createUserProfile } from "@/utils/firebaseHelpers";
 
 interface AuthContextType {
   currentUser: User | null;
-  signup: (email: string, password: string) => Promise<UserCredential>;
+  signup: (
+    email: string,
+    password: string,
+    displayName: string
+  ) => Promise<UserCredential>;
   login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   signInWithGoogle: () => Promise<UserCredential>;
@@ -42,12 +46,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (
+    email: string,
+    password: string,
+    displayName: string
+  ) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Update profile with display name
+    await updateProfile(result.user, { displayName });
 
     await createUserProfile(result.user.uid, {
       email: result.user.email,
-      displayName: result.user.email?.split("@")[0] || "User",
+      displayName: displayName,
       photoURL: result.user.photoURL,
     });
 
@@ -91,3 +102,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     </AuthContext.Provider>
   );
 };
+export default AuthContext;

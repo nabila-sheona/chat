@@ -1,41 +1,36 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  Alert,
-  Image,
-  ActivityIndicator,
-} from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/config/firebase";
+import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import {
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
   setDoc,
-  doc,
 } from "firebase/firestore";
-import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface User {
   id: string;
   email: string;
   displayName: string;
-  photoURL: string;
 }
 
 export default function ContactsScreen() {
   const { currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,31 +46,15 @@ export default function ContactsScreen() {
             id: doc.id,
             email: data.email || "No email",
             displayName: data.displayName || data.email || "Unknown User",
-            photoURL: data.photoURL || "https://place-hold.it/100x100",
           };
         });
 
       setUsers(usersData);
-      setFilteredUsers(usersData);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [currentUser]);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredUsers(users);
-    } else {
-      setFilteredUsers(
-        users.filter(
-          (u) =>
-            u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-    }
-  }, [searchQuery, users]);
 
   const startChat = async (otherUser: User) => {
     if (!currentUser) return;
@@ -88,6 +67,10 @@ export default function ContactsScreen() {
         {
           participants: [currentUser.uid, otherUser.id],
           lastUpdated: new Date(),
+          unreadCount: {
+            [currentUser.uid]: 0,
+            [otherUser.id]: 0,
+          },
         },
         { merge: true }
       );
@@ -118,35 +101,16 @@ export default function ContactsScreen() {
         </ThemedText>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons
-          name="search"
-          size={20}
-          color="#666"
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name or email..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={20} color="#999" />
-          </TouchableOpacity>
-        )}
-      </View>
-
       <FlatList
-        data={filteredUsers}
+        data={users}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.userItem}
             onPress={() => startChat(item)}
           >
-            <Image source={{ uri: item.photoURL }} style={styles.avatarImage} />
+            <View style={styles.avatarContainer}>
+              <Ionicons name="person-circle" size={48} color="#A1CEDC" />
+            </View>
             <View style={styles.userInfo}>
               <ThemedText style={styles.userName}>
                 {item.displayName}
@@ -163,10 +127,7 @@ export default function ContactsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   center: {
     flex: 1,
     justifyContent: "center",
@@ -188,24 +149,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-    backgroundColor: "#F2F2F7",
-    margin: 12,
-    borderRadius: 10,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#000000",
-  },
   userItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -213,15 +156,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
   },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-  },
-  userInfo: {
-    flex: 1,
-  },
+  avatarContainer: { marginRight: 12 },
+  userInfo: { flex: 1 },
   userName: {
     color: "#000000",
     fontWeight: "600",

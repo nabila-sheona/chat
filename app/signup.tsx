@@ -1,27 +1,28 @@
-import React, { useState } from "react";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Platform,
-} from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { router } from "expo-router";
+import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { signup, signInWithGoogle } = useAuth();
 
   const handleSignup = async () => {
-    if (!email || !password || !confirmPassword) {
+    if (!email || !password || !confirmPassword || !displayName) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
@@ -38,7 +39,7 @@ export default function SignupScreen() {
 
     setIsLoading(true);
     try {
-      await signup(email, password);
+      await signup(email, password, displayName);
       router.replace("/");
     } catch (error: any) {
       let errorMessage = "Failed to create account";
@@ -79,6 +80,15 @@ export default function SignupScreen() {
       <ThemedText style={styles.title}>Create Account</ThemedText>
 
       <ThemedText style={styles.subtitle}>Join the conversation</ThemedText>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Full Name"
+        placeholderTextColor="#666"
+        value={displayName}
+        onChangeText={setDisplayName}
+        editable={!isLoading}
+      />
 
       <TextInput
         style={styles.input}

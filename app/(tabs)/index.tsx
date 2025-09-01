@@ -1,27 +1,28 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/config/firebase";
+import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import {
   collection,
-  query,
-  where,
+  doc,
+  getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
-  doc,
-  getDocs,
+  query,
+  where,
 } from "firebase/firestore";
-import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface Chat {
   id: string;
@@ -43,86 +44,154 @@ export default function ChatListScreen() {
       return;
     }
 
-    console.log("Current user UID:", currentUser.uid);
-
-    // First, let's check what chats exist in the database
-    const checkAllChats = async () => {
+    const loadChats = async () => {
       try {
-        const allChatsSnapshot = await getDocs(collection(db, "chats"));
-        console.log("All chats in database:", allChatsSnapshot.docs.length);
-        allChatsSnapshot.docs.forEach((doc) => {
-          console.log("Chat ID:", doc.id, "Data:", doc.data());
-        });
+        // First try to query with the proper index
+        const chatsQuery = query(
+          collection(db, "chats"),
+          where("participants", "array-contains", currentUser.uid),
+          orderBy("lastUpdated", "desc")
+        );
+
+        const unsubscribe = onSnapshot(
+          chatsQuery,
+          async (snapshot) => {
+            const chatsData: Chat[] = await Promise.all(
+              snapshot.docs.map(async (chatDoc) => {
+                const data = chatDoc.data();
+
+                const otherParticipantId = data.participants.find(
+                  (id: string) => id !== currentUser.uid
+                );
+
+                let chatName = "Unknown User";
+                let avatar = "https://place-hold.it/100x100";
+
+                if (otherParticipantId) {
+                  try {
+                    const userDoc = await getDoc(
+                      doc(db, "users", otherParticipantId)
+                    );
+                    if (userDoc.exists()) {
+                      const userData = userDoc.data();
+                      chatName =
+                        userData.displayName ||
+                        userData.email ||
+                        "Unknown User";
+                      avatar = userData.photoURL || avatar;
+                    }
+                  } catch (error) {
+                    console.error("Error fetching user data:", error);
+                  }
+                }
+
+                return {
+                  id: chatDoc.id,
+                  name: chatName,
+                  lastMessage: data.lastMessage || "No messages yet",
+                  timestamp: data.lastUpdated?.toDate() || new Date(),
+                  unreadCount: data.unreadCount?.[currentUser.uid] || 0,
+                  avatar,
+                };
+              })
+            );
+
+            setChats(chatsData);
+            setLoading(false);
+          },
+          async (error) => {
+            console.error("Error in chats snapshot:", error);
+
+            // If the query fails due to missing index, try a fallback approach
+            if (error.code === "failed-precondition") {
+              console.log("Index missing, trying fallback approach");
+
+              try {
+                // Get all chats and filter client-side
+                const allChatsSnapshot = await getDocs(collection(db, "chats"));
+                const allChats = allChatsSnapshot.docs;
+
+                const userChats = allChats.filter((chatDoc) => {
+                  const data = chatDoc.data();
+                  return (
+                    data.participants &&
+                    data.participants.includes(currentUser.uid)
+                  );
+                });
+
+                // Sort by lastUpdated manually
+                userChats.sort((a, b) => {
+                  const aTime = a.data().lastUpdated?.toDate() || new Date(0);
+                  const bTime = b.data().lastUpdated?.toDate() || new Date(0);
+                  return bTime.getTime() - aTime.getTime();
+                });
+
+                const chatsData: Chat[] = await Promise.all(
+                  userChats.map(async (chatDoc) => {
+                    const data = chatDoc.data();
+                    const otherParticipantId = data.participants.find(
+                      (id: string) => id !== currentUser.uid
+                    );
+
+                    let chatName = "Unknown User";
+                    let avatar = "https://place-hold.it/100x100";
+
+                    if (otherParticipantId) {
+                      try {
+                        const userDoc = await getDoc(
+                          doc(db, "users", otherParticipantId)
+                        );
+                        if (userDoc.exists()) {
+                          const userData = userDoc.data();
+                          chatName =
+                            userData.displayName ||
+                            userData.email ||
+                            "Unknown User";
+                          avatar = userData.photoURL || avatar;
+                        }
+                      } catch (error) {
+                        console.error("Error fetching user data:", error);
+                      }
+                    }
+
+                    return {
+                      id: chatDoc.id,
+                      name: chatName,
+                      lastMessage: data.lastMessage || "No messages yet",
+                      timestamp: data.lastUpdated?.toDate() || new Date(),
+                      unreadCount: data.unreadCount?.[currentUser.uid] || 0,
+                      avatar,
+                    };
+                  })
+                );
+
+                setChats(chatsData);
+                setLoading(false);
+
+                Alert.alert(
+                  "Info",
+                  "Please create a Firestore index for chats query. Check console for details."
+                );
+              } catch (fallbackError) {
+                console.error("Fallback approach also failed:", fallbackError);
+                Alert.alert("Error", "Failed to load chats: " + error.message);
+                setLoading(false);
+              }
+            } else {
+              Alert.alert("Error", "Failed to load chats: " + error.message);
+              setLoading(false);
+            }
+          }
+        );
+
+        return () => unsubscribe();
       } catch (error) {
-        console.error("Error checking all chats:", error);
+        console.error("Error setting up chat listener:", error);
+        setLoading(false);
       }
     };
 
-    checkAllChats();
-
-    const chatsQuery = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", currentUser.uid),
-      orderBy("lastUpdated", "desc")
-    );
-
-    console.log("Setting up chat listener...");
-
-    const unsubscribe = onSnapshot(
-      chatsQuery,
-      (snapshot) => {
-        console.log("Chats query returned:", snapshot.docs.length, "chats");
-
-        if (snapshot.docs.length === 0) {
-          console.log("No chats found for user:", currentUser.uid);
-          console.log("This could mean:");
-          console.log("1. No chats exist with this user as participant");
-          console.log("2. Firestore index is missing");
-          console.log("3. Security rules are blocking access");
-        }
-
-        const chatsData: Chat[] = snapshot.docs.map((chatDoc) => {
-          const data = chatDoc.data();
-          console.log("Processing chat:", chatDoc.id, data);
-
-          const otherParticipantId = data.participants.find(
-            (id: string) => id !== currentUser.uid
-          );
-
-          console.log("Other participant ID:", otherParticipantId);
-
-          let chatName = "Unknown User";
-          let avatar = "https://place-hold.it/100x100";
-
-          return {
-            id: chatDoc.id,
-            name: chatName,
-            lastMessage: data.lastMessage || "No messages yet",
-            timestamp: data.lastUpdated?.toDate() || new Date(),
-            unreadCount: data.unreadCount?.[currentUser.uid] || 0,
-            avatar,
-          };
-        });
-
-        setChats(chatsData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error in chats snapshot:", error);
-        if (error.code === "failed-precondition") {
-          Alert.alert(
-            "Index Required",
-            "Please create the Firestore index for chats query. Check console for details."
-          );
-          console.log("Index creation link should appear in Firebase console");
-        } else {
-          Alert.alert("Error", "Failed to load chats: " + error.message);
-        }
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+    loadChats();
   }, [currentUser]);
 
   const handleLogout = async () => {
@@ -146,6 +215,7 @@ export default function ChatListScreen() {
         <View style={styles.chatHeader}>
           <ThemedText style={styles.chatName}>{item.name}</ThemedText>
           <ThemedText style={styles.timestamp}>
+            {item.timestamp.toLocaleDateString()}{" "}
             {item.timestamp.toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -192,9 +262,6 @@ export default function ChatListScreen() {
             <ThemedText style={styles.emptyText}>No chats yet</ThemedText>
             <ThemedText style={styles.emptySubtext}>
               Start a conversation from the Contacts tab!
-            </ThemedText>
-            <ThemedText style={styles.debugText}>
-              User UID: {currentUser?.uid}
             </ThemedText>
           </View>
         }
@@ -298,11 +365,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#666",
     fontSize: 16,
-  },
-  debugText: {
-    marginTop: 16,
-    color: "#999",
-    fontSize: 12,
-    fontFamily: "monospace",
   },
 });
